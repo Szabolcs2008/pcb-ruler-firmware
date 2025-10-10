@@ -1,6 +1,7 @@
 import protocol
 import argparse
 import serial
+import os
 
 VERSION = "0.1.1"
 
@@ -31,11 +32,14 @@ def Derror(*s):
 def printHelp():
     print("help                       Show this message")
     print("exit                       Exit the program")
+    print("clear                      Clear the console")
+    print("version                    Prints the shell version")
     print("upload [SOURCE] [TARGET]   Upload SOURCE to TARGET (SOURCE = str('some text here') to directly upload text.)")
     print("ls [TARGET]                List TARGET directory's contents")
     print("rm (-r) [TARGET]           Delete TARGET (-r for recursive deletion)")
     print("cd [TARGET]                Change directory to TARGET (Local only)")
     print("mkdir (-p) [TARGET]        Creates a directory at TARGET (-p to create parent directories instead of failing)")
+
 
 def parse_dir_up(abspath):
     parsed_target = ""
@@ -63,6 +67,13 @@ while True:
             break
         elif command == "help":
             printHelp()
+        elif command == "clear":
+            if os.name in ("nt", "dos"):
+                os.system("cls")
+            else:
+                os.system("clear")
+        elif command == "version":
+            Dlog("CLI version",VERSION)
         elif command == "upload":
             if len(args) < 2:
                 Derror("Invalid command syntax. Use 'help' for correct usage")
@@ -217,7 +228,8 @@ while True:
                 else:
                     if sys_args.verbose:
                         protocol.log("---- SUCCESS ----")
-
+        else:
+            Derror("Command not found.")
     except KeyboardInterrupt:
         Dlog("^C")
     

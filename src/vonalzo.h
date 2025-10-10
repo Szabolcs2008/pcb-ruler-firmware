@@ -45,6 +45,9 @@ enum class SerialHeader {
 
     Header_Filesystem_List_Path,
 
+    Header_Filesystem_Cat_Path,
+    Header_Filesystem_Cat_Next_Byte,
+
     Header_Realtime,
     Data_Realtime,
     
