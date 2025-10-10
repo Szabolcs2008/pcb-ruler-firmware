@@ -5,3 +5,4 @@
 .vscode/ipch
 test
 ext-utils/text
+ext-utils/__pycache__
