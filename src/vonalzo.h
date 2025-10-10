@@ -79,6 +79,8 @@ void centerText(Adafruit_SSD1306& display, String s, int16_t x0, int16_t x1, int
 
 bool listDir(String path, char fbuf[32][64], char dlist[32]);
 
+bool mkdirs(const String path);
+
 bool showYesNo(Adafruit_SSD1306& display, String s);
 
 bool recursiveDelete(String path);

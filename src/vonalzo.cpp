@@ -146,13 +146,27 @@ bool recursiveDelete(const String path) {
   return result;
 }
 
+bool mkdirs(const String path) {
+    String currentPath;
+    currentPath.reserve(512); 
+    for (char c : path) {
+        if (c == '/') {
+            if (!LittleFS.mkdir(currentPath)) return false;
+        } 
+        currentPath += c;
+    }
+    if (!LittleFS.mkdir(currentPath)) return false;
+    return true;
+}
+
+
 bool listDir(String path, char fbuf[32][64], char dlist[32]) {
     uint8_t fileCount = 0;
     for (int i = 0; i < 32; i++) {
         fbuf[i][0] = 0;
         dlist[i] = 0;
     }
-    File item = LittleFS.open(path);
+    File item = LittleFS.open(path, "r", false);
     
     if (!item) {return false;}
 
@@ -228,13 +242,18 @@ bool Vonalzo::HandleSerial() {
             case SerialHeader::Header_Filesystem_Command:
                 filePath.clear();
                 if      (next == 'w') serialHeader = SerialHeader::Header_Filesystem_Upload_Filename; /* Upload file */
+                
                 else if (next == 'd') serialHeader = SerialHeader::Header_Filesystem_Delete_Filename; /* Delete a file or directory */
                 else if (next == 'D') serialHeader = SerialHeader::Header_Filesystem_Delete_Recursive_Filename; /* Delete a file or directory RECURSIVELY */
+                
                 else if (next == 'm') serialHeader = SerialHeader::Header_Filesystem_Mkdir_Path; /* Create a directory */
+                else if (next == 'M') serialHeader = SerialHeader::Header_Filesystem_Mkdirs_Path;
+                
                 else if (next == 'l') serialHeader = SerialHeader::Header_Filesystem_List_Path;
                 
                 break;
-            
+
+
             /* Upload command */
 
             case SerialHeader::Header_Filesystem_Upload_Filename:
@@ -252,6 +271,7 @@ bool Vonalzo::HandleSerial() {
                         
                     } else {
                         Serial.write(FS_FAILED);
+                        serialHeader = SerialHeader::Header_Default;
                     }
                     Serial.flush();
                 }
@@ -288,8 +308,10 @@ bool Vonalzo::HandleSerial() {
                     Serial.flush();
                 }
                 break;
-            
+
+
             /* Delete command */
+
             case SerialHeader::Header_Filesystem_Delete_Filename:
                 if (next != 0) {
                     Serial.write(next);
@@ -321,47 +343,6 @@ bool Vonalzo::HandleSerial() {
                 }
                 break;
             
-            /* Create directory */
-            case SerialHeader::Header_Filesystem_Mkdir_Path:
-                if (next != 0) {
-                    Serial.write(next);
-                    Serial.flush();
-                    filePath += char(next);
-                } else {
-                    if (LittleFS.mkdir(filePath)) {
-                        Serial.write(FS_SUCCESS);
-                    } else {
-                        Serial.write(FS_FAILED);
-                    }
-                    Serial.flush();
-                    serialHeader = SerialHeader::Header_Default;
-                }
-                break;
-            
-            case SerialHeader::Header_Filesystem_List_Path:
-                if (next != 0) {
-                    Serial.write(next);
-                    Serial.flush();
-                    filePath += char(next);
-                } else {
-                    listDir(filePath, dirList, isdir);
-                    Serial.write(isdir, 32);
-                    uint8_t i = 0;
-                    while (i < 32) {
-                        for (uint8_t j = 0; dirList[i][j]; j++) {
-                            Serial.write(dirList[i][j]);
-                        }
-                        Serial.write(0);
-                        Serial.flush();
-                        i++;
-                    }
-                    Serial.write(255);
-                    Serial.flush();
-                    serialHeader = SerialHeader::Header_Default;
-                    
-                }
-                break;
-            
             case SerialHeader::Header_Filesystem_Delete_Recursive_Filename:
                 if (next != 0) {
                     Serial.write(next);
@@ -383,6 +364,75 @@ bool Vonalzo::HandleSerial() {
                     serialHeader = SerialHeader::Header_Default;
                 }
                 break;
+
+
+            /* Create directory */
+
+            case SerialHeader::Header_Filesystem_Mkdir_Path:
+                if (next != 0) {
+                    Serial.write(next);
+                    Serial.flush();
+                    filePath += char(next);
+                } else {
+                    if (LittleFS.mkdir(filePath)) {
+                        Serial.write(FS_SUCCESS);
+                    } else {
+                        Serial.write(FS_FAILED);
+                    }
+                    Serial.flush();
+                    serialHeader = SerialHeader::Header_Default;
+                }
+                break;
+            
+            case SerialHeader::Header_Filesystem_Mkdirs_Path:
+                if (next != 0) {
+                    Serial.write(next);
+                    Serial.flush();
+                    filePath += char(next);
+                } else {
+                    if (mkdirs(filePath)) {
+                        Serial.write(FS_SUCCESS);
+                    } else {
+                        Serial.write(FS_FAILED);
+                    }
+                    Serial.flush();
+                    serialHeader = SerialHeader::Header_Default;
+                }
+                break;
+
+
+            /* List directory contents */
+
+            case SerialHeader::Header_Filesystem_List_Path:
+                if (next != 0) {
+                    Serial.write(next);
+                    Serial.flush();
+                    filePath += char(next);
+                } else {
+                    if (listDir(filePath, dirList, isdir)) {
+                        Serial.write(isdir, 32);
+                        uint8_t i = 0;
+                        while (i < 32) {
+                            for (uint8_t j = 0; dirList[i][j]; j++) {
+                                Serial.write(dirList[i][j]);
+                            }
+                            Serial.write(0);
+                            Serial.flush();
+                            i++;
+                        }
+                        Serial.write(255);
+                        
+                    } else {
+                        Serial.write(FS_FAILED);
+                    }
+                    
+                    Serial.flush();
+                    serialHeader = SerialHeader::Header_Default;
+                }
+                break;
+            
+            
+            
         }
         Serial.read(); // Discard byte
     }
