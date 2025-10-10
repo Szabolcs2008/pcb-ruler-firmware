@@ -148,7 +148,7 @@ bool recursiveDelete(const String path) {
 
 bool listDir(String path, char fbuf[32][64], char dlist[32]) {
     uint8_t fileCount = 0;
-    for (int i = 0; i < fileCount; i++) {
+    for (int i = 0; i < 32; i++) {
         fbuf[i][0] = 0;
         dlist[i] = 0;
     }
@@ -231,7 +231,7 @@ bool Vonalzo::HandleSerial() {
                 else if (next == 'd') serialHeader = SerialHeader::Header_Filesystem_Delete_Filename; /* Delete a file or directory */
                 else if (next == 'D') serialHeader = SerialHeader::Header_Default; /* Delete a file or directory RECURSIVELY */
                 else if (next == 'm') serialHeader = SerialHeader::Header_Filesystem_Mkdir_Path;
-                else if (next == 'l') serialHeader = SerialHeader::Header_Filesystem_Mkdir_Path;
+                else if (next == 'l') serialHeader = SerialHeader::Header_Filesystem_List_Path;
                 
                 break;
             
@@ -334,6 +334,7 @@ bool Vonalzo::HandleSerial() {
                         Serial.write(FS_FAILED);
                     }
                     Serial.flush();
+                    serialHeader = SerialHeader::Header_Default;
                 }
                 break;
             
@@ -356,7 +357,8 @@ bool Vonalzo::HandleSerial() {
                     }
                     Serial.write(255);
                     Serial.flush();
-                }
+                    serialHeader = SerialHeader::Header_Default;
+                }   
         }
         Serial.read(); // Discard byte
     }

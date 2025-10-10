@@ -21,11 +21,11 @@ def wrapText(s: str) -> bytes:
 
 def send_file(_s: serial.Serial, filename: str, data: bytes, print_return = False, verbose=False) -> int:
     _st = time.time()
+    n = 0
+    nextt = time.time()
     
     _s.timeout = 2
     if verbose:
-        n = 0
-        nextt = time.time()
         log("Starting upload.")
         log("Sending write command and filename")
 
@@ -256,7 +256,6 @@ def send_list(_s: serial.Serial, path: str, verbose=False) -> bytes:
     
     return data
     
-
 def replaceAll(s: str, cmap: dict) -> str:
     for c in cmap:
         s = s.replace(c, cmap[c])
@@ -265,62 +264,72 @@ def replaceAll(s: str, cmap: dict) -> str:
 
 if __name__ == "__main__":
     import argparse
-
     parser = argparse.ArgumentParser()
-    parser.add_argument("PORT", help="The COM port to use")
-    parser.add_argument("REMOTE_FILE")
-    parser.add_argument("-v", "--verbose", help="Print extra info", action="store_true")
+    parser.add_argument("-v", "--verbose", action="store_true")
+    # parser.add_argument("-r", "--recursive", action="store_true")
     parser.add_argument("-W", "--wrap", help="Wrap text lines to 32 characters long", action="store_true")
     parser.add_argument("-m", "--map", help="Use a replacement map for non ascii characters (json file)")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("-w", "--write", help="Upload the specified file")
-    group.add_argument("-r", "--delete", action="store_true")
-    group.add_argument("-d", "--mkdir", action="store_true")
-    group.add_argument("-l", "--list", action="store_true")
-
-
+    parser.add_argument("PORT")
+    parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
     serial_conn = serial.Serial(args.PORT, baudrate=115200)
-    
-    cmap = {}
 
-    if args.write:
+    if len(args.command) < 1:
+        print("Error: Invalid syntax")
+        print("fstool.py [-vWm] PORT upload SOURCE TARGET")
+        print("                      rm (-r) TARGET")
+        print("                      ls TARGET")
+        exit(255)
+
+    _command = args.command[0]
+    _args = args.command[1:]
+
+    if _command.lower() == "upload":
+        if len(_args) < 2:
+            print("Error: Invalid syntax. fstool.py PORT upload (-v) SOURCE TARGET")
+        cmap = {}
         if args.map:
             with open(args.map, encoding="utf-8") as f:
                 cmap = getMap(f.read())
         
         if args.verbose:
-            print(f"> Write remote={args.REMOTE_FILE} <- local={args.write}")
+            print(f"> Write remote={_args[1]} <- local={_args[0]}")
             print("Character map:")
             print(json.dumps(cmap, indent=2, sort_keys=True))
         
-        if args.write[0:4].lower() == "str:":
-            text = str(eval(args.write[4:]))
+        if _args[0][0:4].lower() == "str:":
+            text = str(eval(_args[0][4:]))
         else:
             with open(args.write, "r", encoding="utf-8") as f:
                 text = replaceAll(f.read(), cmap)
-            
+        
         if args.wrap:
             text = wrapText(text)
         else:
             text = text.encode(encoding="ascii")
-
-        success = send_file(serial_conn, args.REMOTE_FILE, text, verbose=args.verbose)
+        
+        success = send_file(serial_conn, _args[1], text, verbose=args.verbose)
         if success:
             if args.verbose:
                 log("---- FAIL ----")
             exit(1)
-            # print(serial_conn.read_all())
         else:
             if args.verbose:
                 log("---- SUCCESS ----")
             exit(0)
-    elif args.delete:
-        if args.verbose:
-            print("> Delete", args.REMOTE_FILE)
+
+    elif _command.lower() == "rm":
+        if len(_args) < 1:
+            print("Error: Invalid syntax. fstool.py PORT rm (-r) TARGET")
         
-        resp = send_delete(serial_conn, args.REMOTE_FILE, args.verbose)
+        recursive = False
+        if len(_args) > 1:
+            if _args[0] == "-r": recursive = True
+        else:
+            if _args[0] == "-r": print("Error: Invalid syntax. fstool.py PORT rm (-r) TARGET")
+
+        resp = send_delete(serial_conn, _args[0] if not recursive else _args[1], args.verbose)
         if resp:
             if resp == FS_DIR_NOT_EMPTY:
                 print(f"Error: directory '{args.REMOTE_FILE}' is not empty.")
@@ -333,24 +342,13 @@ if __name__ == "__main__":
             if args.verbose:
                 log("---- SUCCESS ----")
             exit(0)
-    elif args.mkdir:
-        if args.verbose:
-            print("> Mkdir", args.REMOTE_FILE)
-        resp = send_mkdir(serial_conn, args.REMOTE_FILE, args.verbose)
-        if resp:
-            if resp == FS_FAILED_TO_OPEN_FILE:
-                print("Error: failed to create directory. Is it a valid path?")
-            if args.verbose:
-                log("Failed with code", resp)
-                log("---- FAIL ----")
-            exit(1)
-        else:
-            if args.verbose:
-                log("---- SUCCESS ----")
-            exit(0)
 
-    elif args.list:
-        raw = send_list(serial_conn, args.REMOTE_FILE, args.verbose)
+    elif _command.lower() == "ls":
+        if len(_args) < 1:
+            print("Error: Invalid syntax. fstool.py PORT ls TARGET")
+            
+        _target = _args[0]
+        raw = send_list(serial_conn, _target, args.verbose)
         isDir = [bool(i) for i in raw[0:32]]
         files = [""]
         i = 32
@@ -360,10 +358,10 @@ if __name__ == "__main__":
                 i += 1
             files.append("")
             i += 1
-        print(f"Directory listing of '{args.REMOTE_FILE}'")
+        print(f"--- Directory listing of '{_target}' ---")
         for i in range(0, len(files)-1):
             _item = files[i]
             _dir = isDir[i]
             if not _item: continue
-            print(f"  {_item}{'/' if _dir else ''}")
+            print(f" * ({'D' if _dir else 'F'}) {_item}{'/' if _dir else ''}")
 
