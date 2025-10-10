@@ -38,8 +38,10 @@ enum class SerialHeader {
     Header_Filesystem_Upload_Data,
 
     Header_Filesystem_Delete_Filename,
+    Header_Filesystem_Delete_Recursive_Filename,
 
     Header_Filesystem_Mkdir_Path,
+    Header_Filesystem_Mkdirs_Path,
 
     Header_Filesystem_List_Path,
 

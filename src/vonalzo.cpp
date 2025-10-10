@@ -229,8 +229,8 @@ bool Vonalzo::HandleSerial() {
                 filePath.clear();
                 if      (next == 'w') serialHeader = SerialHeader::Header_Filesystem_Upload_Filename; /* Upload file */
                 else if (next == 'd') serialHeader = SerialHeader::Header_Filesystem_Delete_Filename; /* Delete a file or directory */
-                else if (next == 'D') serialHeader = SerialHeader::Header_Default; /* Delete a file or directory RECURSIVELY */
-                else if (next == 'm') serialHeader = SerialHeader::Header_Filesystem_Mkdir_Path;
+                else if (next == 'D') serialHeader = SerialHeader::Header_Filesystem_Delete_Recursive_Filename; /* Delete a file or directory RECURSIVELY */
+                else if (next == 'm') serialHeader = SerialHeader::Header_Filesystem_Mkdir_Path; /* Create a directory */
                 else if (next == 'l') serialHeader = SerialHeader::Header_Filesystem_List_Path;
                 
                 break;
@@ -358,7 +358,31 @@ bool Vonalzo::HandleSerial() {
                     Serial.write(255);
                     Serial.flush();
                     serialHeader = SerialHeader::Header_Default;
-                }   
+                    
+                }
+                break;
+            
+            case SerialHeader::Header_Filesystem_Delete_Recursive_Filename:
+                if (next != 0) {
+                    Serial.write(next);
+                    Serial.flush();
+                    filePath += char(next);
+                } else {
+                    file = LittleFS.open(filePath);
+                    if (file) {
+                        file.close();
+                        if (recursiveDelete(filePath)) {
+                            Serial.write(FS_SUCCESS);
+                        } else {
+                            Serial.write(FS_FAILED);
+                        }
+                    } else {
+                        Serial.write(FS_FAILED);
+                    }
+                    Serial.flush();
+                    serialHeader = SerialHeader::Header_Default;
+                }
+                break;
         }
         Serial.read(); // Discard byte
     }

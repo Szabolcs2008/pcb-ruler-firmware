@@ -134,7 +134,7 @@ def getMap(mapString: str):
 
     return map_data
 
-def send_mkdir(_s: serial.Serial, path: str, verbose=False) -> int:
+def send_mkdir(_s: serial.Serial, path: str, verbose=False, parents=False) -> int:
     _s.timeout = 2
     if verbose:
         n = 0
@@ -180,7 +180,11 @@ def send_delete(_s: serial.Serial, filename: str, verbose=False) -> int:
         n = 0
         nextt = time.time()
         log("Sending delete command")
-    _s.write(b'Fd')
+    _s.write(b'F')
+    if not recursive:
+        _s.write(b"d")
+    else:
+        _s.write(b"D")
 
     if verbose:
         log("Sending filename")
@@ -288,6 +292,7 @@ if __name__ == "__main__":
     if _command.lower() == "upload":
         if len(_args) < 2:
             print("Error: Invalid syntax. fstool.py PORT upload (-v) SOURCE TARGET")
+            exit(255)
         cmap = {}
         if args.map:
             with open(args.map, encoding="utf-8") as f:
@@ -322,6 +327,8 @@ if __name__ == "__main__":
     elif _command.lower() == "rm":
         if len(_args) < 1:
             print("Error: Invalid syntax. fstool.py PORT rm (-r) TARGET")
+            exit(255)
+
         
         recursive = False
         if len(_args) > 1:
@@ -346,11 +353,14 @@ if __name__ == "__main__":
     elif _command.lower() == "ls":
         if len(_args) < 1:
             print("Error: Invalid syntax. fstool.py PORT ls TARGET")
+            exit(255)
+
             
         _target = _args[0]
         raw = send_list(serial_conn, _target, args.verbose)
         isDir = [bool(i) for i in raw[0:32]]
         files = [""]
+        
         i = 32
         while i < len(raw):
             while raw[i] != 0:
@@ -359,9 +369,34 @@ if __name__ == "__main__":
             files.append("")
             i += 1
         print(f"--- Directory listing of '{_target}' ---")
+        # print(raw)
         for i in range(0, len(files)-1):
             _item = files[i]
             _dir = isDir[i]
             if not _item: continue
             print(f" * ({'D' if _dir else 'F'}) {_item}{'/' if _dir else ''}")
+    elif _command.lower() == "mkdir":
+        if len(_args) < 1:
+            print("Error: Invalid syntax. fstool.py PORT mkdir (-p) TARGET")
+            exit(255)
 
+        
+        parents = False
+        if len(_args) > 1:
+            if _args[0] == "-p":
+                parents = True
+            
+        target = _args[0] if len(_args) < 2 else _args[1]
+        resp = send_mkdir(serial_conn, target, args.verbose, parents)
+        if resp:
+            if resp == FS_FAILED_TO_OPEN_FILE:
+                print("Error: failed to create directory. Is it a valid path?")
+            if args.verbose:
+                log("Failed with code", resp)
+                log("---- FAIL ----")
+            exit(1)
+        else:
+            if args.verbose:
+                log("---- SUCCESS ----")
+            exit(0)
+        

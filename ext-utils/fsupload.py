@@ -256,7 +256,6 @@ def send_list(_s: serial.Serial, path: str, verbose=False) -> bytes:
     
     return data
     
-
 def replaceAll(s: str, cmap: dict) -> str:
     for c in cmap:
         s = s.replace(c, cmap[c])
