@@ -1,20 +1,22 @@
 #include "vonalzo.h"
+#include "apps/baseApplication.h"
 #include "apps/builtin_textReader.h"
 #include "apps/builtin_systemStats.h"
 #include "apps/builtin_Files.h"
+#include "apps/flappy_bird.h"
 #include <sys/stat.h>
 
 
 // App menu things
 const char* MenuOptions[] = {
     /* Apps */
-    "Files", 
+    "Files", "Flappy Bird",
     
     /* System functions */
     "Sleep", "Reboot", "Power off (deep sleep)", "System Info"
 };
 
-const int DynamicApps = 1;
+const int DynamicApps = 2;
 const int menuOptionNumber = DynamicApps+4;
 int menuIndex = 0;
 int menuRenderIndex = 0;
@@ -75,7 +77,7 @@ void renderButtonsHorizontal(Adafruit_SSD1306 &display, const char* a, const cha
 }
 
 void renderButtonsVertical(Adafruit_SSD1306 &display, const char* a, const char* b, const char* c, const char* d, bool renderEmpty) {
-    int y = 5;
+    int y = 2;
     if (strcmp(a, "") || renderEmpty) {
     display.setCursor(95, y+5);
     display.print("A:");
@@ -472,9 +474,12 @@ void Vonalzo::HandleButtons() {
             }
             
         } else if (buttons == bit(3) && !this->lastButtonState) {
+            setLED(0);
             switch (menuIndex) {
+                
                 // case 0: currentApp = TextReader::instance(); currentApp->reset(); break;
                 case 0: currentApp = FilesApp::instance(); currentApp->reset(); break;
+                case 1: currentApp = FlappyBird::instance(); currentApp->reset(); break;
 
                 /* Hardcoded system functions */
                 
@@ -490,7 +495,6 @@ void Vonalzo::HandleButtons() {
 
 
 void Vonalzo::loop() {
-    setLED(0);
     if (this->HandleSerial()) {
         delayMicroseconds(500);
         return;
